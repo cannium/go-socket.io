@@ -1,6 +1,9 @@
 package socketio
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 // BroadcastAdaptor is the adaptor to handle broadcasts.
 type BroadcastAdaptor interface {
@@ -58,13 +61,18 @@ func (b *broadcast) Leave(room string, socket Socket) error {
 
 func (b *broadcast) Send(ignore Socket, room, event string, args ...interface{}) error {
 	b.RLock()
-	sockets := b.m[room]
+	defer b.RUnlock()
+
+	sockets, ok := b.m[room]
+	if !ok {
+		return errors.New("No such room: " + room)
+	}
+
 	for id, s := range sockets {
 		if ignore != nil && ignore.Id() == id {
 			continue
 		}
 		s.Emit(event, args...)
 	}
-	b.RUnlock()
 	return nil
 }
